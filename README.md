@@ -1,7 +1,7 @@
 # amd64-arm
 Set up an emulated Debian 64-bit (amd64) environment (Stretch, Buster doesn't work at the moment with emulation) on an ARM computer/SBC. Requires Debian or one of its derivatives like Raspberry Pi OS (previously Raspbian), Ubuntu, Kali Linux etc to be installed.
 
-## Tested derivatives of Debian on which i386-arm can be set up
+## Tested derivatives of Debian on which amd64-arm can be set up
 
 1. Raspberry Pi OS (previously Raspbian) Buster
 2. Ubuntu Server 20.04
@@ -14,7 +14,7 @@ Set up an emulated Debian 64-bit (amd64) environment (Stretch, Buster doesn't wo
 
 1. Raspberry Pi 4B
 
-## Untested hardware (might work)
+## Untested hardware
 
 1. A Mac computer using Apple Silicon with an ARM Debian VM running on it.
 
