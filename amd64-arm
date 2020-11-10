@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# Exit on errors
+set -e
+
+# Default Debian version (buster and sid don't work at the moment, hence using strech)
+DEF_VER=stretch
+
+# Check if root
+[[ ! $(id -u) -eq 0 ]] && { echo 'Requires root. Exiting...' && exit 1; }
+
+# Prompt asking whether to proceed
+echo 'Proceed? Doing so will remove an existing amd64-arm environment, if present. Press ENTER to continue, ^C to cancel.'
+read
+
+# Remove an existing amd64-arm environment, if present
+umount /amd64/sys/ &>/dev/null || true
+umount /amd64/proc/ &>/dev/null || true
+umount /amd64/dev/ &>/dev/null || true
+umount /amd64/dev/pts/ &>/dev/null || true
+umount /amd64/dev/shm/ &>/dev/null || true
+umount /amd64/main_storage/ &>/dev/null || true
+rm -rf /amd64/
+
+# Install all required dependencies
+apt-get update && apt-get install -y qemu qemu-user qemu-user-static sudo binfmt-support debootstrap binutils lxterminal
+
+# Setup Debian x86 chroot
+[[ "$1" != "" ]] && debootstrap --no-check-gpg --foreign --arch amd64 "$1" /amd64 http://ftp.us.debian.org/debian || debootstrap --no-check-gpg --foreign --arch amd64 "$DEF_VER" /amd64 http://ftp.us.debian.org/debian
+
+# Create a directory for main storage in the chroot
+mkdir -p /amd64/main_storage
+
+# setup_amd64
+cat <<EOF > /usr/bin/setup_amd64
+#!/bin/bash
+mount -t sysfs sys /amd64/sys/
+mount -t proc proc /amd64/proc/
+mount --bind /dev /amd64/dev/
+mount --bind /dev/pts /amd64/dev/pts/
+mount --bind /dev/shm /amd64/dev/shm/
+mount --bind / /amd64/main_storage
+EOF
+chmod 755 /usr/bin/setup_amd64
+cat <<EOF > /etc/systemd/system/setup_amd64.service
+[Unit]
+Description=Service to setup amd64 chroot environment
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/setup_amd64
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Make setup_amd64 run at boot
+systemctl enable setup_amd64
+
+# Start setup_amd64
+systemctl start setup_amd64
+
+# Copy qemu-amd64-static
+cp /usr/bin/qemu-x86_64-static /amd64/usr/bin/qemu-x86_64-static
+
+# Run second stage of debootstrap
+chroot /amd64/ /debootstrap/debootstrap --second-stage
+
+# Run apt-get update in the chroot
+chroot /amd64/ apt-get update
+
+# Setup en_US.UTF-8 locale
+chroot /amd64/ apt-get install locales -y
+sed -i "/en_US\.UTF\-8 UTF\-8/ s/# *//" /amd64/etc/locale.gen
+chroot /amd64/ locale-gen
+chroot /amd64/ update-locale LANG=en_US.UTF-8
+
+# Create desktop file for launching environment
+mkdir -p /usr/share/applications/
+cat <<EOF > /usr/share/applications/amd64.desktop
+[Desktop Entry]
+Name=amd64-arm - Terminal
+Type=Application
+Comment=Launch amd64-arm environment
+Exec=lxterminal --title="amd64-arm - Terminal" -e "sudo -p 'Please type your password and pres ENTER to continue (may not be visible when typing): ' chroot /amd64/ /bin/bash"
+Icon=terminal
+Terminal=false
+Categories=Utility;
+EOF
+
+# Create program for launching environment
+cat <<EOF > /usr/bin/amd64
+#!/bin/bash
+sudo -p 'Please type your password and press ENTER to continue (may not be visible when typing): ' chroot /amd64/ /bin/bash
+EOF
+chmod 755 /usr/bin/amd64
+
+# Prompt for reboot
+echo 'Reboot? Required for amd64-arm to work properly. Press ENTER to reboot, ^C to cancel.'
+read
+reboot
