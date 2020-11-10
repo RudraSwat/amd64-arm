@@ -18,7 +18,7 @@ Set up an emulated Debian 64-bit (amd64) environment (Stretch, Buster doesn't wo
 
 1. A Mac computer using Apple Silicon with an ARM Debian VM running on it.
 
-# Setup i386-arm on your ARM computer/SBC
+# Setup amd64-arm on your ARM computer/SBC
 
 You need to download amd64-arm at https://raw.githubusercontent.com/RudraSwat/amd64-arm/master/amd64-arm and run the below commands in the terminal:
 
